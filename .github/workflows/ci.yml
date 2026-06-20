@@ -1,0 +1,45 @@
+name: Automated Push Pipeline
+
+on:
+  push:
+    branches: [ "main" ] # Déclenche la pipeline à chaque push sur main
+  pull_request:
+    branches: [ "main" ] # Et à chaque Pull Request vers main
+
+# 1. On donne la permission d'écrire sur le dépôt au token automatique
+permissions:
+  contents: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 2. Récupérer le code proprement sur la bonne branche
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      # 3. [OPTIONNEL] Place ici tes étapes (ex: formater le code, incrémenter une version...)
+      # Si ta pipeline crée ou modifie des fichiers, ils seront détectés à l'étape suivante.
+      - name: Example modification
+        run: |
+          echo "Pipeline exécutée le $(date)" > pipeline-log.txt
+
+      # 4. Configurer Git et envoyer les modifications
+      - name: Commit and Push changes
+        run: |
+          # Configuration du bot GitHub Actions
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # On prépare les fichiers modifiés
+          git add .
+          
+          # On commit SEULEMENT s'il y a des changements (évite de faire planter la CI s'il n'y a rien à push)
+          # Le [skip ci] évite de boucler à l'infini
+          git diff-index --quiet HEAD || git commit -m "chore: mise à jour automatique par la CI [skip ci]"
+          
+          # On push sur la branche d'origine
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
