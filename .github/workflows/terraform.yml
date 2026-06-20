@@ -1,0 +1,48 @@
+name: Terraform Quality & Security CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read      # Pour permettre le checkout du code
+  security-events: write # REQUIS pour que Trivy puisse afficher les alertes dans l'onglet Security de GitHub
+
+jobs:
+  terraform-ci:
+    name: Lint & Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Récupérer le code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Vérifier le formatage officiel de Terraform (terraform fmt)
+      # Bloque la pipeline si le code est mal indenté
+      - name: HashiCorp - Terraform Setup
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "latest"
+
+      - name: Check Terraform Format
+        run: terraform fmt -check -recursive
+
+      # 3. ANALYSE SÉCURITÉ : Trivy (Moteur tfsec)
+      # Scanne l'IaC et remonte les vulnérabilités de configuration
+      - name: Run Trivy Security Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-progress: false
+          format: 'sarif' # Format standardisé de sécurité de GitHub
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      # 4. Publier les résultats de sécurité dans l'onglet GitHub Security
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
