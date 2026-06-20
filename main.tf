@@ -24,7 +24,7 @@ module "proxy" {
   external_port = each.value.port
   target_ip     = var.kali_ip
   target_port   = var.sliver_port
-  proxy_ip = var.proxy_ip
+  proxy_ip      = var.proxy_ip
 }
 
 module "target" {
