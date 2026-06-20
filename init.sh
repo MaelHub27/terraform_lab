@@ -5,7 +5,9 @@ if [[ $# -ne 1 ]]; then
 	exit 1
 fi
 
-# systemctl --user enable --now podman.socket
+if ! systemctl --user is-active --quiet podman.socket; then
+	systemctl --user enable --now podman.socket
+fi # Check if podman is running, if not start it
 
 plan_name=$1
 
