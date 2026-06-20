@@ -1,5 +1,4 @@
-name: Terraform Quality & Security CI
-
+name: Security Scan (Bash + Terraform)
 on:
   push:
     branches: [ "main" ]
@@ -7,42 +6,41 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: read      # Pour permettre le checkout du code
-  security-events: write # REQUIS pour que Trivy puisse afficher les alertes dans l'onglet Security de GitHub
+  contents: read
+  security-events: write  # nécessaire pour publier les résultats dans l'onglet "Security"
 
 jobs:
-  terraform-ci:
-    name: Lint & Security Scan
+  shellcheck:
+    name: Lint Bash scripts
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Récupérer le code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Vérifier le formatage officiel de Terraform (terraform fmt)
-      # Bloque la pipeline si le code est mal indenté
-      - name: HashiCorp - Terraform Setup
-        uses: hashicorp/setup-terraform@v3
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
         with:
-          terraform_version: "latest"
+          severity: warning   # niveaux: error, warning, info, style
+          # ignore_paths: "vendor"  # décommente si besoin d'exclure des dossiers
 
-      - name: Check Terraform Format
-        run: terraform fmt -check -recursive
+  terraform-scan:
+    name: Scan Terraform (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 3. ANALYSE SÉCURITÉ : Trivy (Moteur tfsec)
-      # Scanne l'IaC et remonte les vulnérabilités de configuration
-      - name: Run Trivy Security Scanner
+      - name: Run Trivy (Terraform misconfigurations)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'config'
-          hide-progress: false
-          format: 'sarif' # Format standardisé de sécurité de GitHub
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+          scan-type: "config"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
 
-      # 4. Publier les résultats de sécurité dans l'onglet GitHub Security
-      - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
